@@ -154,7 +154,7 @@ void QueryEngine::executeQuery(string q)
         else if (c.size() == 1 && c.count("appointment id"))
             searchAppointmentById(c["appointment id"], fields);
         else
-            cout << "Invald condition on Appointments\n";
+            cout << "Invalid condition on Appointments\n";
     }
     else
         cout << "Unknown table: " << table << "\n";
@@ -202,7 +202,7 @@ void QueryEngine::searchDoctorById(string id, string fields)
 {
     int offset = indexManager.binarySearchPrimary(indexManager.doctorPrimaryIndex, id);
     Doctor d;
-    if (offset == -1 || !doctorFile.readDoctorAt(offset, d))
+    if (offset == -1 || !doctorFile.readDoctorAt(offset, d) || getField(d.id, ID_SIZE) != id)
     {
         cout << "Doctor not found\n";
         return;
@@ -266,7 +266,7 @@ void QueryEngine::searchDoctorByNameAndSpecialty(string name, string specialty, 
     int specHead = indexManager.binarySearchSecondary(indexManager.doctorSpecialtyIndex, specialty);
     if (nameHead == -1 || specHead == -1)
     {
-        cout << "No doctors match both condition\n";
+        cout << "No doctors match both conditions\n";
         return;
     }
 
@@ -289,7 +289,7 @@ void QueryEngine::searchDoctorByNameAndSpecialty(string name, string specialty, 
         count++;
     }
     if (count == 0)
-        cout << "No doctors match both condition\n";
+        cout << "No doctors match both conditions\n";
     else
         cout << "Total matching doctors: " << count << "\n";
 }
@@ -299,7 +299,7 @@ void QueryEngine::searchAppointmentById(string id, string fields)
 {
     int offset = indexManager.binarySearchPrimary(indexManager.appointmentPrimaryIndex, id);
     Appointment a;
-    if (offset == -1 || !readAppointmentAt(offset, a))
+    if (offset == -1 || !readAppointmentAt(offset, a) || trimField(a.appointmentID, 15) != id)
     {
         cout << "Appointment not found\n";
         return;
