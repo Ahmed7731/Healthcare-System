@@ -28,12 +28,13 @@ private:
 
     int readHeader();
     void writeHeader(int value);
-    int getFileSize();
     void writeRecordAt(int offset, const Doctor& d);
     bool writeFieldAt(int offset, int fieldStart, int fieldSize, string value);
 
 public:
     DoctorFile(string name);
+
+    int getFileSize();
 
     int findOffsetById(string id);
 
