@@ -53,8 +53,7 @@ public:
     vector<SecondaryIndexEntry> doctorNameIndex;
     vector<SecondaryIndexEntry> doctorSpecialtyIndex;
 
-    // The indexes live in memory and are rebuilt at every start,
-    // so the linked list file always starts empty too.
+    
     IndexManager(string listFileName = "secondary_lists.dat") {
         secondaryListFile = listFileName;
         ofstream clear(secondaryListFile, ios::binary | ios::trunc);
@@ -91,9 +90,7 @@ public:
         sort(doctorSpecialtyIndex.begin(), doctorSpecialtyIndex.end());
     }
 
-    // ---------- primary index ----------
-
-    // Inserts in the right place, so the index stays sorted.
+   
     void insertPrimary(vector<PrimaryIndexEntry>& index, string key, int offset) {
         auto it = lower_bound(index.begin(), index.end(), PrimaryIndexEntry{key, 0});
         index.insert(it, PrimaryIndexEntry{key, offset});
@@ -105,8 +102,7 @@ public:
             index.erase(it);
     }
 
-    // Key update: change the key, then shift the entry left or right
-    // until the array is sorted again.
+   
     bool changePrimaryKey(vector<PrimaryIndexEntry>& index, string oldKey, string newKey) {
         int pos = -1;
         for (int i = 0; i < (int)index.size(); i++) {
@@ -130,7 +126,7 @@ public:
         return true;
     }
 
-    // ---------- secondary index (linked lists in another file) ----------
+   
 
     void insertSecondaryIndex(vector<SecondaryIndexEntry>& secIndex, string secondaryKey, string primaryKey) {
         auto it = lower_bound(secIndex.begin(), secIndex.end(), SecondaryIndexEntry{secondaryKey, 0});
@@ -171,8 +167,7 @@ public:
         return primaryKeys;
     }
 
-    // Removes one primary key from the list of a secondary key.
-    // If the list becomes empty, the secondary key is removed too.
+   
     void removeFromSecondary(vector<SecondaryIndexEntry>& secIndex, string secondaryKey, string primaryKey) {
         auto it = lower_bound(secIndex.begin(), secIndex.end(), SecondaryIndexEntry{secondaryKey, 0});
         if (it == secIndex.end() || it->key != secondaryKey) return;
@@ -207,8 +202,7 @@ public:
         file.close();
     }
 
-    // Used when a primary key changes: the list node keeps the secondary key
-    // but now holds the new primary key.
+    
     void changePrimaryKeyInSecondary(vector<SecondaryIndexEntry>& secIndex, string secondaryKey, string oldPrimaryKey, string newPrimaryKey) {
         int head = binarySearchSecondary(secIndex, secondaryKey);
         if (head == -1) return;
@@ -234,8 +228,7 @@ public:
         file.close();
     }
 
-    // Used when a doctor ID changes: the appointments index key changes
-    // and the entry is shifted to its new sorted place.
+    
     bool renameSecondaryKey(vector<SecondaryIndexEntry>& secIndex, string oldKey, string newKey) {
         int pos = -1;
         for (int i = 0; i < (int)secIndex.size(); i++) {
