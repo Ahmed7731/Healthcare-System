@@ -91,7 +91,7 @@ void writeAppointmentField(const string& filename, int offset, int fieldStart, i
     file.close();
 }
 
-// Marks the appointment as deleted in the file (AVAIL LIST) and removes it from all indexes.
+
 bool deleteAppointment(IndexManager& indexManager, const string& filename, const string& appID) {
     int offset = indexManager.binarySearchPrimary(indexManager.appointmentPrimaryIndex, appID);
     if (offset == -1) return false;
@@ -119,7 +119,7 @@ bool deleteAppointment(IndexManager& indexManager, const string& filename, const
     return true;
 }
 
-// The indexes are in memory, so they are rebuilt from the data files when the program starts.
+
 void rebuildIndexes(IndexManager& indexManager, DoctorFile& doctorFile, const string& appointmentsFileName) {
     int doctorsSize = doctorFile.getFileSize();
     for (int offset = HEADER_SIZE; offset + DOCTOR_RECORD_SIZE <= doctorsSize; offset += DOCTOR_RECORD_SIZE) {
