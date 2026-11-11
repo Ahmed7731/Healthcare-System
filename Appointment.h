@@ -1,12 +1,12 @@
-
 #ifndef APPOINTMENT_H
 #define APPOINTMENT_H
 
-#include <bits/stdc++.h>
+#include <iostream>
+#include <string>
+#include <cstring>
+#include <algorithm>
 using namespace std;
 #pragma pack(push, 1)
-
-
 
 class Appointment {
 public:
@@ -14,9 +14,7 @@ public:
     char appointmentDate[30];
     char doctorID[15];
 
-//hi
-    Appointment();
-    Appointment(string id="", string date="", string docID="");
+    Appointment(string id = "", string date = "", string docID = "");
     ~Appointment();
     void setAppointmentID(const string& id);
     void setAppointmentDate(const string& date);
@@ -29,13 +27,7 @@ public:
     bool updateDate(const string& newDate);
     int deleteRecord(int currentAvailListHead);
     static const int RECORD_SIZE = 60;
-
-
 };
 
-
-
-
-
 #pragma pack(pop)
-#endif //APPOINTMENT_H
+#endif
