@@ -1,13 +1,13 @@
-
 #include "Appointment.h"
 
-Appointment::Appointment(){
-    memset(appointmentID, ' ', sizeof(appointmentID));
-    memset(appointmentDate, ' ', sizeof(appointmentDate));
-    memset(doctorID, ' ', sizeof(doctorID));
+static string trimRight(const char* field, int size) {
+    int len = size;
+    while (len > 0 && (field[len - 1] == ' ' || field[len - 1] == '\0'))
+        len--;
+    return string(field, len);
 }
 
-Appointment::Appointment(string id,string date, string docID){
+Appointment::Appointment(string id, string date, string docID) {
     memset(appointmentID, ' ', sizeof(appointmentID));
     memset(appointmentDate, ' ', sizeof(appointmentDate));
     memset(doctorID, ' ', sizeof(doctorID));
@@ -15,10 +15,10 @@ Appointment::Appointment(string id,string date, string docID){
     setAppointmentDate(date);
     setDoctorID(docID);
 }
-Appointment::~Appointment() {
 
+Appointment::~Appointment() {
 }
-//hi
+
 void Appointment::setAppointmentID(const string& id) {
     memset(appointmentID, ' ', sizeof(appointmentID));
     size_t len = min(id.length(), sizeof(appointmentID));
@@ -38,15 +38,15 @@ void Appointment::setDoctorID(const string& docID) {
 }
 
 string Appointment::getAppointmentID() const {
-    return string(appointmentID, strnlen(appointmentID, sizeof(appointmentID)));
+    return trimRight(appointmentID, sizeof(appointmentID));
 }
 
 string Appointment::getAppointmentDate() const {
-    return string(appointmentDate, strnlen(appointmentDate, sizeof(appointmentDate)));
+    return trimRight(appointmentDate, sizeof(appointmentDate));
 }
 
 string Appointment::getDoctorID() const {
-    return string(doctorID, strnlen(doctorID, sizeof(doctorID)));
+    return trimRight(doctorID, sizeof(doctorID));
 }
 
 bool Appointment::updateDate(const string& newDate) {
@@ -60,10 +60,10 @@ bool Appointment::updateDate(const string& newDate) {
 
 int Appointment::deleteRecord(int currentAvailListHead) {
     appointmentID[0] = '*';
-    memcpy(appointmentID, &currentAvailListHead, sizeof(int));
-
+    memcpy(appointmentID + 1, &currentAvailListHead, sizeof(int));
     return 1;
 }
+
 bool Appointment::isDeleted() const {
     return appointmentID[0] == '*';
 }
@@ -73,4 +73,3 @@ void Appointment::printAppointment() const {
          << " | Date: " << getAppointmentDate()
          << " | Doctor ID: " << getDoctorID() << endl;
 }
-
