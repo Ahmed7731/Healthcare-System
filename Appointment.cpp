@@ -1,10 +1,22 @@
 #include "Appointment.h"
+#include <fstream>
+#include <iostream>
+
+const int APPOINTMENT_HEADER_SIZE = 4;
+const int APPOINTMENT_DATE_START = 15;
+const int APPOINTMENT_DOCTOR_START = 45;
 
 static string trimRight(const char* field, int size) {
     int len = size;
     while (len > 0 && (field[len - 1] == ' ' || field[len - 1] == '\0'))
         len--;
     return string(field, len);
+}
+
+static void fillField(char* dest, int size, const string& value) {
+    memset(dest, ' ', size);
+    size_t len = min(value.length(), (size_t)size);
+    memcpy(dest, value.c_str(), len);
 }
 
 Appointment::Appointment(string id, string date, string docID) {
@@ -58,10 +70,9 @@ bool Appointment::updateDate(const string& newDate) {
     return true;
 }
 
-int Appointment::deleteRecord(int currentAvailListHead) {
+void Appointment::deleteRecord(int currentAvailListHead) {
     appointmentID[0] = '*';
     memcpy(appointmentID + 1, &currentAvailListHead, sizeof(int));
-    return 1;
 }
 
 bool Appointment::isDeleted() const {
@@ -72,4 +83,109 @@ void Appointment::printAppointment() const {
     cout << "Appointment ID: " << getAppointmentID()
          << " | Date: " << getAppointmentDate()
          << " | Doctor ID: " << getDoctorID() << endl;
+}
+
+
+AppointmentFile::AppointmentFile(string name) {
+    fileName = name;
+    ifstream check(fileName, ios::binary);
+    if (!check) {
+        ofstream create(fileName, ios::binary);
+        int header = -1;
+        create.write((char*)&header, sizeof(header));
+        create.close();
+    }
+}
+int AppointmentFile::readHeader() {
+    ifstream file(fileName, ios::binary);
+    int header = -1;
+    file.seekg(0, ios::beg);
+    file.read((char*)&header, sizeof(int));
+    file.close();
+    return header;
+}
+void AppointmentFile::writeHeader(int value) {
+    fstream file(fileName, ios::in | ios::out | ios::binary);
+    file.seekp(0, ios::beg);
+    file.write((char*)&value, sizeof(int));
+    file.close();
+}
+int AppointmentFile::getFileSize() {
+    ifstream file(fileName, ios::binary);
+    file.seekg(0, ios::end);
+    int size = (int)file.tellg();
+    file.close();
+    return size;
+}
+void AppointmentFile::writeRecordAt(int offset, const Appointment& a) {
+    fstream file(fileName, ios::in | ios::out | ios::binary);
+    file.seekp(offset, ios::beg);
+    file.write(a.appointmentID, Appointment::ID_SIZE);
+    file.write(a.appointmentDate, Appointment::DATE_SIZE);
+    file.write(a.doctorID, Appointment::DOC_ID_SIZE);
+    file.close();
+}
+bool AppointmentFile::addAppointment(const Appointment& a, int& offset) {
+    int head = readHeader();
+    if (head == -1) {
+        offset = getFileSize();
+    } else {
+        offset = head;
+        int nextHead = -1;
+        ifstream file(fileName, ios::binary);
+        file.seekg(offset + 1, ios::beg);
+        file.read((char*)&nextHead, sizeof(int));
+        file.close();
+        writeHeader(nextHead);
+    }
+    writeRecordAt(offset, a);
+    return true;
+}
+
+bool AppointmentFile::deleteAppointmentAt(int offset) {
+    Appointment a;
+    if (!readAppointmentAt(offset, a)) return false;
+    int oldHead = readHeader();
+    a.deleteRecord(oldHead);
+    writeRecordAt(offset, a);
+    writeHeader(offset);
+
+    return true;
+}
+
+bool AppointmentFile::readAppointmentAt(int offset, Appointment& a) {
+    if (offset < APPOINTMENT_HEADER_SIZE || offset + Appointment::RECORD_SIZE > getFileSize())
+        return false;
+    ifstream file(fileName, ios::binary);
+    file.seekg(offset, ios::beg);
+    file.read(a.appointmentID, Appointment::ID_SIZE);
+    file.read(a.appointmentDate, Appointment::DATE_SIZE);
+    file.read(a.doctorID, Appointment::DOC_ID_SIZE);
+    bool ok = (bool)file;
+    file.close();
+    return ok && !a.isDeleted();
+}
+
+bool AppointmentFile::updateDateAt(int offset, const string& newDate) {
+    if (newDate.length() > Appointment::DATE_SIZE) return false;
+    char buffer[Appointment::DATE_SIZE];
+    fillField(buffer, Appointment::DATE_SIZE, newDate);
+    fstream file(fileName, ios::in | ios::out | ios::binary);
+    if (!file) return false;
+    file.seekp(offset + APPOINTMENT_DATE_START, ios::beg);
+    file.write(buffer, Appointment::DATE_SIZE);
+    file.close();
+    return true;
+}
+
+bool AppointmentFile::updateDoctorIdAt(int offset, const string& newDoctorId) {
+    if (newDoctorId.length() > Appointment::DOC_ID_SIZE) return false;
+    char buffer[Appointment::DOC_ID_SIZE];
+    fillField(buffer, Appointment::DOC_ID_SIZE, newDoctorId);
+    fstream file(fileName, ios::in | ios::out | ios::binary);
+    if (!file) return false;
+    file.seekp(offset + APPOINTMENT_DOCTOR_START, ios::beg);
+    file.write(buffer, Appointment::DOC_ID_SIZE);
+    file.close();
+    return true;
 }

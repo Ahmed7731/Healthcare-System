@@ -10,9 +10,13 @@ using namespace std;
 
 class Appointment {
 public:
-    char appointmentID[15];
-    char appointmentDate[30];
-    char doctorID[15];
+    static const int ID_SIZE = 15;
+    static const int DATE_SIZE = 30;
+    static const int DOC_ID_SIZE = 15;
+    static const int RECORD_SIZE = 60;
+    char appointmentID[ID_SIZE];
+    char appointmentDate[DATE_SIZE];
+    char doctorID[DOC_ID_SIZE];
 
     Appointment(string id = "", string date = "", string docID = "");
     ~Appointment();
@@ -25,9 +29,24 @@ public:
     bool isDeleted() const;
     void printAppointment() const;
     bool updateDate(const string& newDate);
-    int deleteRecord(int currentAvailListHead);
-    static const int RECORD_SIZE = 60;
+    void deleteRecord(int currentAvailListHead);
 };
 
 #pragma pack(pop)
+class AppointmentFile {
+private:
+    string fileName;
+    int readHeader();
+    void writeHeader(int value);
+    void writeRecordAt(int offset, const Appointment& a);
+public:
+    AppointmentFile(string name);
+    int getFileSize();
+    bool addAppointment(const Appointment& a, int& offset);
+    bool deleteAppointmentAt(int offset);
+    bool readAppointmentAt(int offset, Appointment& a);
+    bool updateDateAt(int offset, const string& newDate);
+    bool updateDoctorIdAt(int offset, const string& newDoctorId);
+};
+
 #endif

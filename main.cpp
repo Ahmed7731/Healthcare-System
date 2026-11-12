@@ -10,9 +10,8 @@
 
 using namespace std;
 
+
 const int APPOINTMENT_HEADER_SIZE = 4;
-const int APPOINTMENT_DATE_START = 15;
-const int APPOINTMENT_DOCTOR_START = 45;
 
 string readLine(string message) {
     string text;
@@ -33,94 +32,8 @@ bool tooLong(const string& value, int maxSize, const string& fieldName) {
     return false;
 }
 
-bool addAppointmentToFile(const string& filename, const Appointment& app, int& offset) {
-    fstream file(filename, ios::in | ios::out | ios::binary);
-    if (!file) {
-        ofstream create(filename, ios::binary);
-        int header = -1;
-        create.write((char*)&header, sizeof(int));
-        create.close();
-        file.open(filename, ios::in | ios::out | ios::binary);
-    }
+void rebuildIndexes(IndexManager& indexManager, DoctorFile& doctorFile, AppointmentFile& appointmentFile) {
 
-    int head = -1;
-    file.seekg(0, ios::beg);
-    file.read((char*)&head, sizeof(int));
-
-    if (head == -1) {
-        file.seekg(0, ios::end);
-        offset = (int)file.tellg();
-    } else {
-        offset = head;
-        file.seekg(offset + 1, ios::beg);
-        int nextHead = -1;
-        file.read((char*)&nextHead, sizeof(int));
-
-        file.seekp(0, ios::beg);
-        file.write((char*)&nextHead, sizeof(int));
-    }
-
-    file.seekp(offset, ios::beg);
-    file.write(app.appointmentID, 15);
-    file.write(app.appointmentDate, 30);
-    file.write(app.doctorID, 15);
-    file.close();
-
-    return true;
-}
-
-bool readAppointmentRecord(const string& filename, int offset, Appointment& app) {
-    ifstream file(filename, ios::binary);
-    file.seekg(offset, ios::beg);
-    file.read(app.appointmentID, 15);
-    file.read(app.appointmentDate, 30);
-    file.read(app.doctorID, 15);
-    bool ok = (bool)file;
-    file.close();
-    return ok && !app.isDeleted();
-}
-
-void writeAppointmentField(const string& filename, int offset, int fieldStart, int fieldSize, const string& value) {
-    char buffer[30];
-    memset(buffer, ' ', fieldSize);
-    memcpy(buffer, value.c_str(), min((size_t)fieldSize, value.length()));
-
-    fstream file(filename, ios::in | ios::out | ios::binary);
-    file.seekp(offset + fieldStart, ios::beg);
-    file.write(buffer, fieldSize);
-    file.close();
-}
-
-
-bool deleteAppointment(IndexManager& indexManager, const string& filename, const string& appID) {
-    int offset = indexManager.binarySearchPrimary(indexManager.appointmentPrimaryIndex, appID);
-    if (offset == -1) return false;
-
-    Appointment app;
-    if (!readAppointmentRecord(filename, offset, app)) return false;
-    string doctorID = app.getDoctorID();
-
-    fstream file(filename, ios::in | ios::out | ios::binary);
-    int oldHead = -1;
-    file.seekg(0, ios::beg);
-    file.read((char*)&oldHead, sizeof(int));
-
-    file.seekp(offset, ios::beg);
-    char mark = '*';
-    file.write(&mark, 1);
-    file.write((char*)&oldHead, sizeof(int));
-
-    file.seekp(0, ios::beg);
-    file.write((char*)&offset, sizeof(int));
-    file.close();
-
-    indexManager.removePrimary(indexManager.appointmentPrimaryIndex, appID);
-    indexManager.removeFromSecondary(indexManager.appDoctorIdIndex, doctorID, appID);
-    return true;
-}
-
-
-void rebuildIndexes(IndexManager& indexManager, DoctorFile& doctorFile, const string& appointmentsFileName) {
     int doctorsSize = doctorFile.getFileSize();
     for (int offset = HEADER_SIZE; offset + DOCTOR_RECORD_SIZE <= doctorsSize; offset += DOCTOR_RECORD_SIZE) {
         Doctor d;
@@ -132,14 +45,11 @@ void rebuildIndexes(IndexManager& indexManager, DoctorFile& doctorFile, const st
         indexManager.insertSecondaryIndex(indexManager.doctorSpecialtyIndex, getField(d.specialty, SPECIALTY_SIZE), id);
     }
 
-    ifstream file(appointmentsFileName, ios::binary | ios::ate);
-    if (!file) return;
-    int appointmentsSize = (int)file.tellg();
-    file.close();
 
-    for (int offset = APPOINTMENT_HEADER_SIZE; offset + Appointment::RECORD_SIZE <= appointmentsSize; offset += Appointment::RECORD_SIZE) {
+    int appSize = appointmentFile.getFileSize();
+    for (int offset = APPOINTMENT_HEADER_SIZE; offset + Appointment::RECORD_SIZE <= appSize; offset += Appointment::RECORD_SIZE) {
         Appointment app;
-        if (!readAppointmentRecord(appointmentsFileName, offset, app)) continue;
+        if (!appointmentFile.readAppointmentAt(offset, app)) continue;
 
         string appID = app.getAppointmentID();
         indexManager.insertPrimary(indexManager.appointmentPrimaryIndex, appID, offset);
@@ -152,10 +62,11 @@ void displayMenu() {
     string appointmentsFileName = "appointments.dat";
 
     DoctorFile doctorFile(doctorsFileName);
+    AppointmentFile appointmentFile(appointmentsFileName);
     IndexManager indexManager("secondary_lists.dat");
     QueryEngine queryEngine(indexManager, doctorFile, appointmentsFileName);
 
-    rebuildIndexes(indexManager, doctorFile, appointmentsFileName);
+    rebuildIndexes(indexManager, doctorFile, appointmentFile);
 
     int choice = 0;
 
@@ -191,10 +102,7 @@ void displayMenu() {
                 string spec = readLine("Enter Specialty: ");
                 string addr = readLine("Enter Address: ");
 
-                if (id.empty()) {
-                    cout << ">> Error: Doctor ID cannot be empty.\n";
-                    break;
-                }
+                if (id.empty()) { cout << ">> Error: Doctor ID cannot be empty.\n"; break; }
                 if (tooLong(id, ID_SIZE, "Doctor ID") || tooLong(name, NAME_SIZE, "Doctor Name") ||
                     tooLong(spec, SPECIALTY_SIZE, "Specialty") || tooLong(addr, ADDRESS_SIZE, "Address"))
                     break;
@@ -216,25 +124,22 @@ void displayMenu() {
                 string date = readLine("Enter Date: ");
                 string docID = readLine("Enter Doctor ID: ");
 
-                if (appID.empty()) {
-                    cout << ">> Error: Appointment ID cannot be empty.\n";
-                    break;
-                }
-                if (tooLong(appID, 15, "Appointment ID") || tooLong(date, 30, "Date") || tooLong(docID, 15, "Doctor ID"))
+                if (appID.empty()) { cout << ">> Error: Appointment ID cannot be empty.\n"; break; }
+                if (tooLong(appID, Appointment::ID_SIZE, "Appointment ID") ||
+                    tooLong(date, Appointment::DATE_SIZE, "Date") ||
+                    tooLong(docID, Appointment::DOC_ID_SIZE, "Doctor ID"))
                     break;
 
                 if (indexManager.binarySearchPrimary(indexManager.appointmentPrimaryIndex, appID) != -1) {
-                    cout << ">> Error: Appointment ID already exists.\n";
-                    break;
+                    cout << ">> Error: Appointment ID already exists.\n"; break;
                 }
                 if (doctorFile.findOffsetById(docID) == -1) {
-                    cout << ">> Error: Doctor ID does not exist!\n";
-                    break;
+                    cout << ">> Error: Doctor ID does not exist!\n"; break;
                 }
 
                 Appointment app(appID, date, docID);
                 int offset = -1;
-                if (addAppointmentToFile(appointmentsFileName, app, offset)) {
+                if (appointmentFile.addAppointment(app, offset)) {
                     indexManager.insertPrimary(indexManager.appointmentPrimaryIndex, appID, offset);
                     indexManager.insertSecondaryIndex(indexManager.appDoctorIdIndex, docID, appID);
                     cout << ">> Appointment added successfully at offset " << offset << endl;
@@ -247,8 +152,7 @@ void displayMenu() {
 
                 Doctor d;
                 if (!doctorFile.readDoctorById(id, d)) {
-                    cout << ">> Error: Doctor ID not found.\n";
-                    break;
+                    cout << ">> Error: Doctor ID not found.\n"; break;
                 }
                 if (tooLong(newName, NAME_SIZE, "Doctor Name")) break;
 
@@ -266,13 +170,11 @@ void displayMenu() {
 
                 Doctor d;
                 if (!doctorFile.readDoctorById(oldId, d)) {
-                    cout << ">> Error: Old ID not found.\n";
-                    break;
+                    cout << ">> Error: Old ID not found.\n"; break;
                 }
                 if (newId.empty() || tooLong(newId, ID_SIZE, "Doctor ID")) break;
                 if (doctorFile.findOffsetById(newId) != -1) {
-                    cout << ">> Error: New ID already exists.\n";
-                    break;
+                    cout << ">> Error: New ID already exists.\n"; break;
                 }
 
                 int offset = -1;
@@ -281,11 +183,14 @@ void displayMenu() {
                     indexManager.changePrimaryKeyInSecondary(indexManager.doctorNameIndex, getField(d.name, NAME_SIZE), oldId, newId);
                     indexManager.changePrimaryKeyInSecondary(indexManager.doctorSpecialtyIndex, getField(d.specialty, SPECIALTY_SIZE), oldId, newId);
 
+
                     int head = indexManager.binarySearchSecondary(indexManager.appDoctorIdIndex, oldId);
                     vector<string> appIDs = indexManager.getPrimaryKeysFromSecondary(head);
                     for (const string& appID : appIDs) {
                         int appOffset = indexManager.binarySearchPrimary(indexManager.appointmentPrimaryIndex, appID);
-                        writeAppointmentField(appointmentsFileName, appOffset, APPOINTMENT_DOCTOR_START, 15, newId);
+                        if (appOffset != -1) {
+                            appointmentFile.updateDoctorIdAt(appOffset, newId);
+                        }
                     }
                     indexManager.renameSecondaryKey(indexManager.appDoctorIdIndex, oldId, newId);
 
@@ -299,22 +204,32 @@ void displayMenu() {
 
                 int offset = indexManager.binarySearchPrimary(indexManager.appointmentPrimaryIndex, appID);
                 if (offset == -1) {
-                    cout << ">> Error: Appointment ID not found.\n";
-                    break;
+                    cout << ">> Error: Appointment ID not found.\n"; break;
                 }
-                if (tooLong(newDate, 30, "Date")) break;
+                if (tooLong(newDate, Appointment::DATE_SIZE, "Date")) break;
 
-                writeAppointmentField(appointmentsFileName, offset, APPOINTMENT_DATE_START, 30, newDate);
-                cout << ">> Appointment date updated successfully.\n";
+                if (appointmentFile.updateDateAt(offset, newDate)) {
+                    cout << ">> Appointment date updated successfully.\n";
+                }
                 break;
             }
             case 11: {
                 string appID = readLine("Enter Appointment ID: ");
 
-                if (deleteAppointment(indexManager, appointmentsFileName, appID))
-                    cout << ">> Appointment deleted successfully.\n";
-                else
-                    cout << ">> Warning: Appointment ID not found.\n";
+                int offset = indexManager.binarySearchPrimary(indexManager.appointmentPrimaryIndex, appID);
+                if (offset == -1) {
+                    cout << ">> Warning: Appointment ID not found.\n"; break;
+                }
+
+                Appointment app;
+                if (appointmentFile.readAppointmentAt(offset, app)) {
+                    string doctorID = app.getDoctorID();
+                    if (appointmentFile.deleteAppointmentAt(offset)) {
+                        indexManager.removePrimary(indexManager.appointmentPrimaryIndex, appID);
+                        indexManager.removeFromSecondary(indexManager.appDoctorIdIndex, doctorID, appID);
+                        cout << ">> Appointment deleted successfully.\n";
+                    }
+                }
                 break;
             }
             case 12: {
@@ -322,16 +237,23 @@ void displayMenu() {
 
                 Doctor d;
                 if (!doctorFile.readDoctorById(id, d)) {
-                    cout << ">> Warning: Doctor ID not found.\n";
-                    break;
+                    cout << ">> Warning: Doctor ID not found.\n"; break;
                 }
                 string name = getField(d.name, NAME_SIZE);
                 string spec = getField(d.specialty, SPECIALTY_SIZE);
 
+
                 int head = indexManager.binarySearchSecondary(indexManager.appDoctorIdIndex, id);
                 vector<string> appIDs = indexManager.getPrimaryKeysFromSecondary(head);
-                for (const string& appID : appIDs)
-                    deleteAppointment(indexManager, appointmentsFileName, appID);
+                for (const string& appID : appIDs) {
+                    int appOffset = indexManager.binarySearchPrimary(indexManager.appointmentPrimaryIndex, appID);
+                    if (appOffset != -1) {
+                        if (appointmentFile.deleteAppointmentAt(appOffset)) {
+                            indexManager.removePrimary(indexManager.appointmentPrimaryIndex, appID);
+                            indexManager.removeFromSecondary(indexManager.appDoctorIdIndex, id, appID);
+                        }
+                    }
+                }
 
                 int offset = -1;
                 if (doctorFile.deleteDoctorById(id, offset)) {
