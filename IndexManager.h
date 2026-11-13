@@ -20,6 +20,13 @@ struct PrimaryIndexEntry {
     }
 };
 
+inline void copyKey(char* dest, const string& key) {
+    memset(dest, 0, 16);
+    int len = (int)key.length();
+    if (len > 15) len = 15;
+    memcpy(dest, key.c_str(), len);
+}
+
 struct SecondaryNode {
     char primaryKey[16];
     int next;
@@ -134,7 +141,7 @@ public:
 
         SecondaryNode newNode;
         memset(&newNode, 0, sizeof(SecondaryNode));
-        strncpy_s(newNode.primaryKey, primaryKey.c_str(), sizeof(newNode.primaryKey) - 1);
+        copyKey(newNode.primaryKey, primaryKey);
         if (found) newNode.next = it->headPointer;
         else newNode.next = -1;
 
@@ -217,8 +224,7 @@ public:
             if (!file) break;
 
             if (string(node.primaryKey) == oldPrimaryKey) {
-                memset(node.primaryKey, 0, sizeof(node.primaryKey));
-                strncpy_s(node.primaryKey, newPrimaryKey.c_str(), sizeof(node.primaryKey) - 1);
+                copyKey(node.primaryKey, newPrimaryKey);
                 file.seekp(currentOffset, ios::beg);
                 file.write((char*)&node, sizeof(SecondaryNode));
                 break;
