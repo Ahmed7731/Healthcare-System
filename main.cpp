@@ -103,9 +103,14 @@ void displayMenu() {
                 string addr = readLine("Enter Address: ");
 
                 if (id.empty()) { cout << ">> Error: Doctor ID cannot be empty.\n"; break; }
+                if (id[0] == '*') { cout << ">> Error: Doctor ID cannot start with '*' (it is the delete marker).\n"; break; }
                 if (tooLong(id, ID_SIZE, "Doctor ID") || tooLong(name, NAME_SIZE, "Doctor Name") ||
                     tooLong(spec, SPECIALTY_SIZE, "Specialty") || tooLong(addr, ADDRESS_SIZE, "Address"))
                     break;
+
+                if (indexManager.binarySearchPrimary(indexManager.doctorPrimaryIndex, id) != -1) {
+                    cout << ">> Error: Doctor ID '" << id << "' already exists. Record not added.\n"; break;
+                }
 
                 Doctor d = createDoctor(id, name, spec, addr);
                 int offset = -1;
@@ -115,7 +120,7 @@ void displayMenu() {
                     indexManager.insertSecondaryIndex(indexManager.doctorSpecialtyIndex, spec, id);
                     cout << ">> Doctor added successfully at offset " << offset << endl;
                 } else {
-                    cout << ">> Error: Doctor ID already exists or failed to write.\n";
+                    cout << ">> Error: Failed to write the doctor record.\n";
                 }
                 break;
             }
@@ -125,13 +130,14 @@ void displayMenu() {
                 string docID = readLine("Enter Doctor ID: ");
 
                 if (appID.empty()) { cout << ">> Error: Appointment ID cannot be empty.\n"; break; }
+                if (appID[0] == '*') { cout << ">> Error: Appointment ID cannot start with '*' (it is the delete marker).\n"; break; }
                 if (tooLong(appID, Appointment::ID_SIZE, "Appointment ID") ||
                     tooLong(date, Appointment::DATE_SIZE, "Date") ||
                     tooLong(docID, Appointment::DOC_ID_SIZE, "Doctor ID"))
                     break;
 
                 if (indexManager.binarySearchPrimary(indexManager.appointmentPrimaryIndex, appID) != -1) {
-                    cout << ">> Error: Appointment ID already exists.\n"; break;
+                    cout << ">> Error: Appointment ID '" << appID << "' already exists. Record not added.\n"; break;
                 }
                 if (doctorFile.findOffsetById(docID) == -1) {
                     cout << ">> Error: Doctor ID does not exist!\n"; break;
@@ -172,9 +178,14 @@ void displayMenu() {
                 if (!doctorFile.readDoctorById(oldId, d)) {
                     cout << ">> Error: Old ID not found.\n"; break;
                 }
-                if (newId.empty() || tooLong(newId, ID_SIZE, "Doctor ID")) break;
-                if (doctorFile.findOffsetById(newId) != -1) {
-                    cout << ">> Error: New ID already exists.\n"; break;
+                if (newId.empty()) { cout << ">> Error: New Doctor ID cannot be empty.\n"; break; }
+                if (newId[0] == '*') { cout << ">> Error: Doctor ID cannot start with '*' (it is the delete marker).\n"; break; }
+                if (tooLong(newId, ID_SIZE, "Doctor ID")) break;
+                if (newId == oldId) {
+                    cout << ">> Error: New ID is the same as the current ID.\n"; break;
+                }
+                if (indexManager.binarySearchPrimary(indexManager.doctorPrimaryIndex, newId) != -1) {
+                    cout << ">> Error: Doctor ID '" << newId << "' already exists. ID not changed.\n"; break;
                 }
 
                 int offset = -1;
